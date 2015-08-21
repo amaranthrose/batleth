@@ -1,13 +1,17 @@
 defmodule BatteryReader do
-    use GenServer
+    @moduledoc """
+	A module to read and return the current battery status.
+	"""
+ 
 
+    use GenServer
     @supervision_name :battery
     @doc """
-        Starts a battery reader. Takes one argument - pid of the writer.
+        Starts a battery reader - GenServer.
 	If succeeded, returns a tuple {:ok, pid}
 	"""	
 	def start_link(_, _) do    
-		GenServer.start(__MODULE__,  [] , [name: :battery])
+		GenServer.start_link(__MODULE__,  [] , [name: :battery])
 	end
 
 	#api
@@ -16,6 +20,13 @@ defmodule BatteryReader do
 		Reads the current battery status and percentage. Possible responses:
 			{:ok, percentage, status}
 			{:error, :bad_cmd} -> if there was an unknown error
+		Status is an integer:
+			0 -> charging
+			1 -> discharging
+			2 -> unknown
+			3 -> full
+			4 -> not present (percentage is 0)
+			-1 -> an error
 		"""
 	def read do
 		GenServer.call(@supervision_name, {:read})
@@ -24,6 +35,14 @@ defmodule BatteryReader do
 	
 	
 	#Implementation
+	@doc """
+		Handles a call {:read}. Reads the battery status from files and returns {:ok, percentage, status}. 
+		If there was an unknown error, logs it to the log files and returns {:error, :bad_command}.
+
+		Example:
+			iex> BatteryReader.read
+			{:ok, 48, 0}
+	"""
 
 	def handle_call({:read}, _, _) do
 				case File.read("/sys/class/power_supply/BAT1/status") do
@@ -50,6 +69,14 @@ defmodule BatteryReader do
 			
 	end
 
+	@doc ~S"""
+		Parses a battery status from string to integer.
+
+		##Examples
+		
+		iex> BatteryReader.parse_status("Charging\n")
+		0
+	"""
 	defp parse_status(status) do
 		case status do
 			"Charging\n" -> 0

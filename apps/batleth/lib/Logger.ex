@@ -1,4 +1,8 @@
 defmodule Logging do
+	@moduledoc """
+		The module of the logger.
+	"""	
+	
 	use GenServer
 
 	defp opts() do
@@ -6,10 +10,10 @@ defmodule Logging do
 	end
 
 	def start_link(_, _) do
-		GenServer.start(__MODULE__, [], opts)
+		GenServer.start_link(__MODULE__, [], opts)
 	end
 	#api
-	@doc """
+	@doc ~S"""
 		Writes in the log files. The file is saved in path "/var/log/batleth/:year/:day.log"
 		Example record: 30/07/2015 11:10:58 Database not present
 		Possible errors:
@@ -17,6 +21,14 @@ defmodule Logging do
 			:bad_cmd -> writes "Bad command"
 
 		Responds with {:ok}
+
+		##Examples
+
+		    iex> Logging.write(:no_db)
+		    {:ok}
+
+		    iex> Logging.write(:bad_cmd)
+		    {:ok}
 		"""
 	def write(error) do
 		GenServer.call(opts[:name], {:write, error})
@@ -28,7 +40,14 @@ defmodule Logging do
 	end
 
 	defp fwrite(error) do
-		File.write("/var/log/batleth/#{Time.year}/#{Time.month}.log", Time.date_and_time <> " " <> error<>"\n", [:append])
+                unless File.exists?("/var/log/batleth/#{Time.year}") do
+                        File.mkdir("/var/log/batleth/#{Time.year}")
+                end
+                {:ok, pid} = File.open("/var/log/batleth/#{Time.year}/#{Time.month}.log", [:append])
+                unless IO.write(pid,Time.date_and_time <> " " <> error<>"\n") == :ok do
+                        raise "Logger can't write to the file"
+                end
+                File.close(pid) 
 	end
 				
 	def handle_call({:write, :no_db}, _, _) do
